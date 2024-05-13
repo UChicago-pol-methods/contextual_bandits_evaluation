@@ -27,7 +27,7 @@ We organize the code into two directories:
 # Development setup
 R and Python are required. We recommend creating the following conda environment for computation.
 ```bash
-conda create --name aw_contextual python=3.7
+conda create --name aw_contextual python=3.11
 conda activate aw_contextual
 source install.sh
 ```
