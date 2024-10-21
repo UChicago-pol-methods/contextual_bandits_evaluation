@@ -6,21 +6,21 @@ We have adjusted the simulation code originally provided by [Zhan, Ruohan, et al
 The original Python example code is accessible [here](https://github.com/gsbDBI/contextual_bandits_evaluation/blob/master/experiments/intro_example.ipynb).
 
 Our updated version of Python simulation code is accessible here:
-- [experiments/simulation.ipynb](https://github.com/UChicago-pol-methods/contextual_bandits_evaluation/blob/master/experiments/main/simulations.ipynb)
+- [experiments/simulation.ipynb](https://github.com/UChicago-pol-methods/contextual_bandits_evaluation/blob/main/experiments/simulations.ipynb)
 We simulate the experimental data in python, analyze it using the original python code, and then export identical data to be analyzed in R. 
 
 Our analysis script in R can be reviewed here:
 - R Markdown: [experiments/results/Simulation_with_Python_experiment_data.Rmd](https://github.com/UChicago-pol-methods/contextual_bandits_evaluation/blob/master/experiments/results/Simulation_with_Python_experiment_data.Rmd)
 - Rendered PDF: [experiments/results/Simulation_with_Python_experiment_data.pdf](https://github.com/UChicago-pol-methods/contextual_bandits_evaluation/blob/master/experiments/results/Simulation_with_Python_experiment_data.pdf)
 
-The objective is to compare the estimates produced in the [python notebook](https://github.com/UChicago-pol-methods/contextual_bandits_evaluation/blob/master/experiments/main/simulations.ipynb) (cells 4, 5, and 6) to those in the R script, reported below. 
+The objective is to compare the estimates produced in the [python notebook](https://github.com/UChicago-pol-methods/contextual_bandits_evaluation/blob/main/experiments/simulations.ipynb) (cells 4, 5, and 6) to those in the R script, reported below. 
 Note that in numerical examples Zhan et al. estimate constrasts "defining the doubly robust score for the contrast as the difference in doubly robust scores for the two policies," (section 6, Target Policies) i.e., the appropriate comparisons for contrasts are using the "combined" method. 
 In the python analysis code, 
 - Non-contextual variance minimizing estimates are represented  as`propscore_expected`
 - Contextual variance minimizing estimates are `propscore_X`
 - Non-contextual variance stabilizing estimates are `lvdl_expected`
 - Contextual variance stabilizing estimates are `lvdl_X`
-- Unlike in the R code, in the python code, `uniform` estimation method refers to one in which weights 1:T are applied to doubly robust scores; this differes from the "uniform" estimation method in [Hadad, et al. (2021)](https://arxiv.org/abs/1911.02768) which reports AIPW estimates, which is also what is reported as "uniform" in the R code. Here we also present methods to replicate the 1:T weighting scheme in the Zhan et al. simulations as `uniform_var`. 
+- Unlike in the R code, in the python code, `uniform` estimation method refers to one in which weights 1:T are applied to doubly robust scores; this differs from the "uniform" estimation method in [Hadad, et al. (2021)](https://arxiv.org/abs/1911.02768) which reports AIPW estimates, which is also what is reported as "uniform" in the R code. Here we also present methods to replicate the 1:T weighting scheme in the Zhan et al. simulations as `uniform_var`. 
 
 
 |method                   |   estimate| std_error|       var|contrasts   |policy         |
