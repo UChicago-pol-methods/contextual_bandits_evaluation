@@ -1,0 +1,179 @@
+---
+title: "Simulation with Python Experiment Data (Contextual)"
+date: "`r Sys.Date()`"
+output: pdf_document
+fontsize: 10pt
+---
+
+# 1. Preparing the data
+```{r setup}
+library(reticulate)
+library(banditsCI)
+
+# Read in data generated in python notebook
+
+gammahat <- as.matrix(read.csv('gammahat.csv', header = FALSE))
+muxs <- as.matrix(read.csv('muxs.csv', header = FALSE))
+
+# probabilities
+np <- import("numpy")
+# 3 dimensions: time, contexts, treatment arms
+probs_array <- np$load("probs.npy") 
+
+
+# Define the policies we want to evaluate
+policy1_main <- list(
+  # includes all matrices in policy1 and policy0
+  matrix(
+    c(rep(1, nrow(gammahat)), 
+      rep(0, nrow(gammahat)), 
+      rep(0, nrow(gammahat)),  
+      rep(0, nrow(gammahat))),
+    nrow = nrow(gammahat)),
+  matrix(
+    c(rep(0, nrow(gammahat)), 
+      rep(1, nrow(gammahat)), 
+      rep(0, nrow(gammahat)), 
+      rep(0, nrow(gammahat))),
+    nrow = nrow(gammahat)),
+  matrix(
+    c(rep(0, nrow(gammahat)), 
+      rep(0, nrow(gammahat)), 
+      rep(1, nrow(gammahat)), 
+      rep(0, nrow(gammahat))),
+    nrow = nrow(gammahat)),
+  matrix(
+    c(rep(0, nrow(gammahat)), 
+      rep(0, nrow(gammahat)), 
+      rep(0, nrow(gammahat)), 
+      rep(1, nrow(gammahat))),
+    nrow = nrow(gammahat)))
+```
+
+# 2. Estimation
+
+## 2.1 Main Effects
+```{r main_effects}
+best_mtx <- matrix(0, nrow = nrow(gammahat), ncol = ncol(gammahat))
+best_mtx[, which.max(colMeans(muxs))] <- 1
+
+output_estimates_best <- output_estimates(policy1 = list(best_mtx),
+                                          gammahat = gammahat,
+                                          probs_array = probs_array,
+                                          floor_decay = 0.8)
+
+uniform_var <- estimate(0:(nrow(gammahat)-1),
+                        gammahat, 
+                        best_mtx)
+output_estimates_best[[1]] <- rbind(output_estimates_best[[1]],
+                                    'uniform_var' = c(uniform_var['estimate'],
+                                                      sqrt(uniform_var['var'])))
+
+
+optimal_mtx <- matrix(0, nrow = nrow(gammahat), ncol = ncol(gammahat))
+optimal_mtx[cbind(1:nrow(gammahat), apply(muxs, 1, which.max))] <- 1
+
+output_estimates_optimal <- output_estimates(policy1 = list(optimal_mtx),
+                                             gammahat = gammahat,
+                                             probs_array = probs_array,
+                                             floor_decay = 0.8)
+
+uniform_var <- estimate(0:(nrow(gammahat)-1),
+                        gammahat, 
+                        optimal_mtx)
+output_estimates_optimal[[1]] <- rbind(output_estimates_optimal[[1]],
+                                       'uniform_var' = c(
+                                         uniform_var['estimate'], 
+                                         sqrt(uniform_var['var'])))
+
+```
+
+## 2.2 Treatment effects in contrast to control
+$\delta(w_1, w_2) = E[Y_t(w_1) - Y_t(w_2)]$.
+
+The first approach: use the difference in AIPW scores as the unbiased scoring rule for $\delta (w_1, w_2)$.
+
+The following function implements the first approach by subtracting policy0, the control arm, from all the arms in policy1, except for the control arm itself.
+
+```{r contrasts_1}
+out_full_te1 <- output_estimates(
+  policy0 = best_mtx,
+  policy1 = list(optimal_mtx),
+  contrasts = "combined",
+  gammahat = gammahat,
+  probs_array = probs_array,
+  floor_decay = 0.8)
+
+uniform_var <- estimate(0:(nrow(gammahat)-1),
+                        gammahat, 
+                        optimal_mtx-best_mtx)
+out_full_te1[[1]] <- rbind(out_full_te1[[1]],
+                           'uniform_var' = c(
+                             uniform_var['estimate'], 
+                             sqrt(uniform_var['var'])))
+```
+
+The second approach takes asymptotically normal inference about $\delta(w_1, w_2): \delta ^ hat (w_1, w_2) = Q ^ hat (w_1) - Q ^ hat (w_2)$
+
+```{r contrasts_2}
+
+out_full_te2 <- output_estimates(
+  policy0 = best_mtx,
+  policy1 = list(optimal_mtx),
+  contrasts = "separate",
+  gammahat = gammahat,
+  probs_array = probs_array,
+  floor_decay = 0.8)
+
+out_full_te1[[1]] <- rbind(out_full_te1[[1]],
+                           'uniform_var' = c(
+                             output_estimates_optimal[[1]]['uniform_var','estimate'] - output_estimates_best[[1]]['uniform_var','estimate'], 
+                             sqrt(output_estimates_optimal[[1]]['uniform_var','std.error']^2 + 
+                                    output_estimates_best[[1]]['uniform_var','std.error']^2)
+                           ))
+```
+
+# 3. Compare the results
+```{r results}
+# Compare the two approaches for uniform and non_contextual_two_point
+comparison_df <- data.frame(method = character(),
+                            estimate = numeric(),
+                            std_error = numeric(),
+                            var = numeric(),
+                            contrasts = character(),
+                            policy = integer(),
+                            stringsAsFactors = FALSE)
+
+# Function to process and append data
+process_data <- function(data, policy_num, contrasts) {
+  for (method in c("non_contextual_minvar", "contextual_minvar",
+                   "non_contextual_stablevar", "contextual_stablevar", 
+                   "uniform_var")) {
+    if (method %in% rownames(data)) {
+      row <- data.frame(
+        method = method,
+        estimate = data[method, "estimate"],
+        std_error = data[method, "std.error"],
+        var = data[method, "std.error"]^2,
+        contrasts = contrasts,
+        policy = policy_num,
+        stringsAsFactors = FALSE
+      )
+      comparison_df <<- rbind(comparison_df, row)
+    }
+  }
+}
+
+# Process and append data for each subset and condition
+process_data(output_estimates_best[[1]], "best", "main effect")
+process_data(output_estimates_optimal[[1]], "optimal", "main effect")
+process_data(out_full_te1[[1]], "(best,optimal)", "combined")
+process_data(out_full_te2[[1]], "(best,optimal)", "separate")
+
+
+comparison_df <- comparison_df[order(comparison_df$policy, decreasing = TRUE), ]
+
+# print the comparison data frame as a table
+knitr::kable(comparison_df)
+```
+
